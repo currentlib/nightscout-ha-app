@@ -78,6 +78,12 @@ export NS_WANTED NS_AUTO_UPDATE
 NS_WANTED=$(opt nightscout_version)
 NS_AUTO_UPDATE=$(jq -r '.auto_update' "$OPTIONS")
 
+export MQTT_HOST MQTT_PORT MQTT_USERNAME MQTT_PASSWORD
+MQTT_HOST=$(opt mqtt_host)
+MQTT_PORT=$(opt mqtt_port)
+MQTT_USERNAME=$(opt mqtt_username)
+MQTT_PASSWORD=$(opt mqtt_password)
+
 log "Starting MongoDB"
 gosu mongodb mongod --dbpath /data/mongo --bind_ip 127.0.0.1 --quiet \
   --wiredTigerCacheSizeGB 0.25 \
@@ -99,6 +105,9 @@ serve_pid=$!
 
 gosu nightscout update.sh &
 update_pid=$!
+
+# Stops with the container. Its MQTT last will marks the entities unavailable.
+(while true; do gosu nightscout node /usr/local/bin/bridge.js; sleep 30; done) &
 
 wait "$mongod_pid"
 log "ERROR: mongod stopped unexpectedly"

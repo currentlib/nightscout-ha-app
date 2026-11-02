@@ -72,28 +72,51 @@ Confirm with a reading on the Nightscout graph.
 If the connector accepts an access token instead, prefer that: Admin Tools can create a role
 with only the `api:entries:create` permission. A `readable` token can't upload.
 
-## Home Assistant integration
+## Home Assistant entities and dashboard
 
-Add the **Nightscout** integration with:
+The app appears as a **Nightscout** device with its own entities, so you can add them to any
+dashboard, automation or history graph. It needs an MQTT broker:
 
-- **URL:** `http://<hostname>:1337`. It keeps working if the Pi's IP changes. The hostname looks
-  like `a1b2c3d4-nightscout`, and the first part is the first 8 characters of the SHA-1 hash of
-  this repository's lowercase URL. Run `ha apps` to see the app's ID, then replace `_` with `-`.
-- **API Key:** a token with role `readable`, not your `api_secret`.
+1. Install the **Mosquitto broker** app and add the **MQTT** integration if you don't have them.
+   The app finds the broker by itself. For another broker, set the `mqtt_*` options.
+2. Restart this app, then open **Settings > Devices & services > MQTT > Nightscout**.
 
-The sensor reports mg/dL. To see mmol/L, open the entity's settings and change its unit
-of measurement. Or use a template sensor, after checking the entity ID in
-**Developer Tools > States**:
+You don't need Home Assistant's built-in Nightscout integration, which only gives one sensor.
+Values update every minute, and the 24 hour and 14 day statistics every 15 minutes. Glucose uses
+`display_units`. Entities become unavailable while Nightscout restarts or updates.
 
-```yaml
-template:
-  - sensor:
-      - name: Glucose mmol
-        unit_of_measurement: mmol/L
-        state_class: measurement
-        state: "{{ (states('sensor.blood_sugar') | float / 18.016) | round(1) }}"
-        availability: "{{ has_value('sensor.blood_sugar') }}"
-```
+| Entity | What it shows |
+|---|---|
+| `sensor.nightscout_glucose` | Latest reading. Attributes: `mgdl`, `direction`, `device` |
+| `sensor.nightscout_delta`, `_trend` | Change since the last reading, and the trend arrow |
+| `sensor.nightscout_level` | `Urgent low`, `Low`, `In range`, `High` or `Urgent high` |
+| `sensor.nightscout_last_reading` | When the latest reading was taken |
+| `binary_sensor.nightscout_no_data` | On when there is no reading for 15 minutes |
+| `sensor.nightscout_forecast_30m` | Nightscout's AR2 forecast |
+| `sensor.nightscout_iob`, `_cob` | Insulin and carbs on board |
+| `sensor.nightscout_last_carbs`, `_last_carbs_time` | Last carbs from the past 7 days, and when |
+| `sensor.nightscout_last_insulin`, `_last_insulin_time` | Last insulin from the past 7 days, and when |
+| `sensor.nightscout_carbs_today`, `_insulin_today` | Totals since midnight |
+| `sensor.nightscout_time_in_range_24h`, `_14d` | Share of readings in your target range |
+| `sensor.nightscout_time_below_range_24h`, `_14d` | Share below target |
+| `sensor.nightscout_time_above_range_24h`, `_14d` | Share above target |
+| `sensor.nightscout_average_glucose_24h`, `_14d` | Average glucose |
+| `sensor.nightscout_variability_24h`, `_14d` | Coefficient of variation |
+| `sensor.nightscout_gmi_14d` | Glucose management indicator, an estimate of HbA1c |
+| `sensor.nightscout_sensor_started`, `_site_changed` | Dates from Care Portal events |
+| `sensor.nightscout_insulin_changed`, `_pump_battery_changed` | Dates from Care Portal events |
+| `sensor.nightscout_uploader_battery` | Only if your uploader reports it |
+| `sensor.nightscout_database_size`, `_version` | Diagnostics |
+
+An entity shows **Unknown** when Nightscout has no data for it. IOB and COB need treatments, and
+COB also needs a profile in Nightscout. Time in range uses Nightscout's targets, 80 to 180 mg/dL
+(4.4 to 10 mmol/L) by default. For the common 3.9 to 10 range, add `BG_TARGET_BOTTOM=3.9` to
+`extra_env`.
+
+To add the sample dashboard, follow the steps at the top of
+`home-assistant/dashboards/nightscout_dashboard.yaml`
+in this repository. The 24 hour graph fills in over the first day, and the 14 day graph starts
+after about an hour.
 
 ## Updates
 

@@ -5,7 +5,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-SOURCE=v15.0.9 C=nightscout-ha-test CACHE=tests/.cache
+SOURCE=v15.0.9 C=nightscout-ha-test M=ns-test-mosquitto NET=ns-test CACHE=tests/.cache
 SECRET=not-a-real-secret-1234
 HASH=$(printf %s "$SECRET" | sha1sum | cut -d' ' -f1)
 fails=0
@@ -16,7 +16,7 @@ check() { # description, expected, actual
 ex() { docker exec "$C" "$@"; }
 logs() { docker logs "$C" 2>&1; }
 wait_log() { # text, seconds
-  for _ in $(seq 1 "$2"); do logs | grep -qF "$1" && return 0; sleep 1; done
+  for _ in $(seq 1 "$2"); do logs | grep -F "$1" >/dev/null && return 0; sleep 1; done
   echo "timed out waiting for: $1"; logs | tail -15; return 1
 }
 wait_ns() { # version, seconds
@@ -50,6 +50,7 @@ const fs = require('fs'), real = globalThis.fetch;
 globalThis.fetch = async (url, opts) => {
   url = String(url);
   if (url.includes('127.0.0.1')) return real(url, opts);
+  if (url.includes('supervisor/services/mqtt')) return new Response(JSON.stringify({data: {host: 'ns-test-mosquitto', port: 1883}}));
   if (fs.existsSync('/test/offline')) throw new Error('offline');
   if (url.endsWith('/releases/latest')) return new Response(JSON.stringify({tag_name: 'v' + fs.readFileSync('/test/latest', 'utf8').trim()}));
   const v = url.match(/v?(\d+\.\d+\.\d+)/)[1];
@@ -83,11 +84,14 @@ jq -n --arg s "$SECRET" '{api_secret: $s, nightscout_version: "latest", auto_upd
 
 docker build -q -t nightscout-ha-app:test nightscout >/dev/null || exit 1
 docker build -q -t nightscout-ha-app:fixture -f tests/Dockerfile "$CACHE" >/dev/null || exit 1
-docker rm -f "$C" >/dev/null 2>&1
-docker create --init --name "$C" --stop-timeout 60 nightscout-ha-app:fixture >/dev/null
+docker rm -f "$C" "$M" >/dev/null 2>&1
+docker network create "$NET" >/dev/null 2>&1
+docker run -d --name "$M" --network "$NET" eclipse-mosquitto:2 \
+  sh -c 'printf "listener 1883\nallow_anonymous true\n" > /tmp/m.conf; exec mosquitto -c /tmp/m.conf' >/dev/null
+docker create --init --name "$C" --network "$NET" --stop-timeout 60 -e SUPERVISOR_TOKEN=fake nightscout-ha-app:fixture >/dev/null
 docker cp "$CACHE/options.json" "$C:/data/options.json"
 docker start "$C" >/dev/null
-trap 'docker rm -f "$C" >/dev/null 2>&1' EXIT
+trap 'docker rm -f "$C" "$M" >/dev/null 2>&1; docker network rm "$NET" >/dev/null 2>&1' EXIT
 
 ex sh -c 'echo 15.0.8 > /test/latest'
 
@@ -187,12 +191,35 @@ wait_ns 15.0.8 60
 check 'restore rebuilds the recorded version' 15.0.8 "$(ex version)"
 check 'database survives restore' 1 "$(ex mongo --quiet nightscout --eval 'db.entries.count()')"
 
+echo '--- Home Assistant entities over MQTT'
+retained() { docker exec "$M" mosquitto_sub -t "$1" -C 1 -W 5 2>/dev/null; }
+wait_retained() { # topic, expected, seconds
+  for _ in $(seq 1 "$3"); do [ "$(retained "$1")" = "$2" ] && return 0; sleep 1; done
+}
+http /api/v1/entries.json "$HASH" "[{\"type\":\"sgv\",\"sgv\":126,\"direction\":\"Flat\",\"date\":$(date +%s)000}]" >/dev/null
+wait_retained nightscout/availability online 90
+check 'entities go online' online "$(retained nightscout/availability)"
+check 'every entity is announced' 33 "$(docker exec "$M" mosquitto_sub -t 'homeassistant/+/+/config' -W 3 2>/dev/null | wc -l)"
+for _ in $(seq 1 70); do [ "$(retained nightscout/state | jq -r .glucose)" = 7 ] && break; sleep 1; done
+state=$(retained nightscout/state)
+check 'glucose in display units' 7 "$(jq -r .glucose <<<"$state")"
+check 'recent reading is not stale' OFF "$(jq -r .stale <<<"$state")"
+check 'trend arrow' → "$(jq -r .trend <<<"$state")"
+docker exec "$C" mongo --quiet nightscout --eval 'db.dropDatabase()' >/dev/null
+ex pkill -f lib/server/server.js
+wait_ns 15.0.8 60
+sleep 1
+retained homeassistant/sensor/nightscout_glucose/config | jq -e '.device.identifiers == ["nightscout"]' >/dev/null
+check 'discovery is a device' 0 "$?"
+
 echo '--- shutdown'
 start=$(date +%s)
 docker stop -t 60 "$C" >/dev/null
+wait_retained nightscout/availability offline 10
+check 'entities go unavailable when the app stops' offline "$(retained nightscout/availability)"
 check 'stops cleanly before the timeout' yes "$([ $(($(date +%s) - start)) -lt 30 ] && echo yes || echo no)"
 check 'container exit code' 0 "$(docker inspect -f '{{.State.ExitCode}}' "$C")"
-check 'mongod exit code' 1 "$(logs | tail -3 | grep -c 'mongod stopped with exit code 0')"
+check 'mongod exit code' 1 "$(logs | grep 'mongod stopped with exit code' | tail -1 | grep -c 'code 0')"
 docker start "$C" >/dev/null
 wait_ns 15.0.8 90
 ex pkill -9 mongod

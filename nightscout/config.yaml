@@ -1,7 +1,8 @@
 name: Nightscout
-version: "0.1.0"
+version: "0.2.0"
 slug: nightscout
 description: Nightscout CGM monitor with a bundled MongoDB
+url: https://github.com/currentlib/nightscout-ha-app
 arch:
   - aarch64
 init: true
@@ -19,6 +20,8 @@ backup_exclude:
   - nightscout
 ulimits:
   nofile: 64000
+services:
+  - mqtt:want
 options:
   api_secret: null
   nightscout_version: latest
@@ -39,3 +42,7 @@ schema:
   language: str
   extra_env:
     - "match(^[A-Za-z_][A-Za-z0-9_]*=.*$)"
+  mqtt_host: "str?"
+  mqtt_port: "port?"
+  mqtt_username: "str?"
+  mqtt_password: "password?"

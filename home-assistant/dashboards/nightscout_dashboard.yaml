@@ -1,0 +1,207 @@
+# Nightscout dashboard. Sections view, standard cards only, nothing from HACS.
+#
+# Paste into: Settings > Dashboards > Add dashboard > open it > pencil >
+# three dots > Raw configuration editor.
+#
+# Needs the Nightscout app with MQTT discovery working (sensor.nightscout_*).
+# The gauge colours and limits are in mmol/L. For mg/dL multiply them by 18.
+# The Open Nightscout button assumes homeassistant.local: change it if needed.
+
+title: Nightscout
+views:
+  - title: Glucose
+    path: glucose
+    icon: mdi:water
+    type: sections
+    max_columns: 3
+    badges:
+      - type: entity
+        entity: sensor.nightscout_last_reading
+        name: Last reading
+        show_name: true
+      - type: entity
+        entity: sensor.nightscout_iob
+        name: IOB
+        show_name: true
+      - type: entity
+        entity: sensor.nightscout_cob
+        name: COB
+        show_name: true
+      - type: entity
+        entity: sensor.nightscout_forecast_30m
+        name: In 30 min
+        show_name: true
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Now
+            icon: mdi:water
+          - type: markdown
+            content: "## ⚠️ No recent glucose data"
+            visibility:
+              - condition: state
+                entity: binary_sensor.nightscout_no_data
+                state: "on"
+          - type: gauge
+            entity: sensor.nightscout_glucose
+            name: Glucose
+            min: 2
+            max: 20
+            needle: true
+            segments:
+              - from: 2
+                color: "#db4437"
+              - from: 3.1
+                color: "#ffa600"
+              - from: 4.4
+                color: "#43a047"
+              - from: 10
+                color: "#ffa600"
+              - from: 14.4
+                color: "#db4437"
+          - type: tile
+            entity: sensor.nightscout_trend
+            name: Trend
+            grid_options:
+              columns: 6
+              rows: 1
+          - type: tile
+            entity: sensor.nightscout_delta
+            name: Delta
+            grid_options:
+              columns: 6
+              rows: 1
+          - type: tile
+            entity: sensor.nightscout_level
+            name: Level
+            grid_options:
+              columns: 12
+              rows: 1
+          - type: button
+            name: Open Nightscout
+            icon: mdi:open-in-new
+            icon_height: 32px
+            show_state: false
+            tap_action:
+              action: url
+              url_path: http://homeassistant.local:1337/
+            grid_options:
+              columns: 12
+              rows: 1
+
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: History
+            icon: mdi:chart-line
+          - type: history-graph
+            title: Last 24 hours
+            hours_to_show: 24
+            entities:
+              - entity: sensor.nightscout_glucose
+                name: Glucose
+          - type: statistics-graph
+            title: Last 14 days
+            days_to_show: 14
+            period: day
+            chart_type: line
+            stat_types:
+              - min
+              - mean
+              - max
+            entities:
+              - entity: sensor.nightscout_glucose
+                name: Glucose
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Time in range
+            icon: mdi:target
+          - type: gauge
+            entity: sensor.nightscout_time_in_range_24h
+            name: 24 hours
+            min: 0
+            max: 100
+            severity:
+              green: 70
+              yellow: 50
+              red: 0
+            grid_options:
+              columns: 6
+          - type: gauge
+            entity: sensor.nightscout_time_in_range_14d
+            name: 14 days
+            min: 0
+            max: 100
+            severity:
+              green: 70
+              yellow: 50
+              red: 0
+            grid_options:
+              columns: 6
+          - type: entities
+            title: 14 days
+            entities:
+              - entity: sensor.nightscout_time_below_range_14d
+                name: Below range
+              - entity: sensor.nightscout_time_above_range_14d
+                name: Above range
+              - entity: sensor.nightscout_average_glucose_14d
+                name: Average
+              - entity: sensor.nightscout_gmi_14d
+                name: GMI
+              - entity: sensor.nightscout_variability_14d
+                name: Variability
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Treatments
+            icon: mdi:needle
+          - type: tile
+            entity: sensor.nightscout_carbs_today
+            name: Carbs today
+            grid_options:
+              columns: 6
+              rows: 1
+          - type: tile
+            entity: sensor.nightscout_insulin_today
+            name: Insulin today
+            grid_options:
+              columns: 6
+              rows: 1
+          - type: entities
+            entities:
+              - entity: sensor.nightscout_last_carbs
+                name: Last carbs
+              - entity: sensor.nightscout_last_carbs_time
+                name: Eaten
+              - entity: sensor.nightscout_last_insulin
+                name: Last insulin
+              - entity: sensor.nightscout_last_insulin_time
+                name: Injected
+              - entity: sensor.nightscout_iob
+                name: Insulin on board
+              - entity: sensor.nightscout_cob
+                name: Carbs on board
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Device
+            icon: mdi:radio-tower
+          - type: entities
+            entities:
+              - entity: sensor.nightscout_sensor_started
+                name: Sensor started
+              - entity: sensor.nightscout_site_changed
+                name: Site changed
+              - entity: sensor.nightscout_uploader_battery
+                name: Uploader battery
+              - entity: sensor.nightscout_database_size
+                name: Database size
+              - entity: sensor.nightscout_version
+                name: Nightscout version

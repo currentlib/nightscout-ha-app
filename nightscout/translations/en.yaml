@@ -1,0 +1,38 @@
+configuration:
+  api_secret:
+    name: API secret
+    description: Admin password for Nightscout, at least 12 characters.
+  nightscout_version:
+    name: Nightscout version
+    description: latest, or a version such as 15.0.9.
+  auto_update:
+    name: Auto update
+    description: Look for a new release each time the app starts.
+  display_units:
+    name: Glucose units
+    description: Also sets the units of the Home Assistant entities.
+  enable:
+    name: Plugins
+    description: Space-separated list of Nightscout plugins.
+  base_url:
+    name: Public address
+    description: Your public https address, for example from Cloudflare Tunnel.
+  time_format:
+    name: Time format
+  language:
+    name: Language
+    description: Nightscout language code, for example en.
+  extra_env:
+    name: Extra settings
+    description: Any other Nightscout setting, as KEY=VALUE.
+  mqtt_host:
+    name: MQTT host
+    description: Leave empty to use the Mosquitto broker app.
+  mqtt_port:
+    name: MQTT port
+  mqtt_username:
+    name: MQTT username
+  mqtt_password:
+    name: MQTT password
+network:
+  1337/tcp: Nightscout web UI and API
