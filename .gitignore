@@ -1,0 +1,4 @@
+.env
+*.secret
+data/
+tests/.cache/

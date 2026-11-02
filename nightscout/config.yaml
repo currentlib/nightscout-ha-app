@@ -1,0 +1,41 @@
+name: Nightscout
+version: "0.1.0"
+slug: nightscout
+description: Nightscout CGM monitor with a bundled MongoDB
+arch:
+  - aarch64
+init: true
+timeout: 120
+ports:
+  1337/tcp: 1337
+ports_description:
+  1337/tcp: Nightscout web UI and API
+webui: "http://[HOST]:[PORT:1337]/"
+# "/" and not /api/v1/status.json: with AUTH_DEFAULT_ROLES=denied the status
+# endpoint returns 401, which the watchdog would treat as a failure.
+watchdog: "http://[HOST]:[PORT:1337]/"
+backup: cold
+backup_exclude:
+  - nightscout
+ulimits:
+  nofile: 64000
+options:
+  api_secret: null
+  nightscout_version: latest
+  auto_update: true
+  display_units: mmol
+  enable: "careportal basal dbsize iob cob bwp cage sage iage bage treatmentnotify"
+  time_format: "24"
+  language: en
+  extra_env: []
+schema:
+  api_secret: "password(12,)"
+  nightscout_version: "match(^(latest|v?[0-9]+\\.[0-9]+\\.[0-9]+)$)"
+  auto_update: bool
+  display_units: "list(mmol|mg/dl)"
+  enable: str
+  base_url: "url?"
+  time_format: "list(12|24)"
+  language: str
+  extra_env:
+    - "match(^[A-Za-z_][A-Za-z0-9_]*=.*$)"
