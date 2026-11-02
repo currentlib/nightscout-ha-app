@@ -8,7 +8,6 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy.future import select
 
 from app.database import User, async_session_local
-from app.services.tiers import effective_tier
 
 from .common import OnboardingStates, get_main_reply_keyboard, reset_menu_button_to_default, safe_float
 
@@ -33,27 +32,6 @@ async def start_physical_profile_onboarding(message: Message, state: FSMContext,
     )
 
 
-async def send_tos_prompt(message: Message):
-    tos_text = (
-        "📜 <b>Умови використання</b>\n\n"
-        "Цей бот є <b>інформаційним інструментом</b> і не замінює консультацію лікаря.\n\n"
-        "⚠️ <b>Важливо розуміти:</b>\n"
-        "• Розрахунки доз інсуліну та вуглеводів є орієнтовними.\n"
-        "• Штучний інтелект (ШІ) може помилятися або «галюцинувати» — видавати правдоподібну, "
-        "але неправильну інформацію.\n"
-        "• Не приймайте рішення щодо лікування, спираючись лише на відповіді бота.\n"
-        "• Завжди звіряйте важливі показники (дозування інсуліну, вуглеводи) зі своїми знаннями "
-        "та рекомендаціями лікаря.\n"
-        "• У разі сумнівів або погіршення самопочуття — негайно зверніться до лікаря.\n\n"
-        "Натискаючи «Погоджуюсь», ви підтверджуєте, що розумієте: цей бот — допоміжний "
-        "інструмент, а не медична консультація."
-    )
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Погоджуюсь", callback_data="tos_accept")]
-    ])
-    await message.answer(tos_text, reply_markup=keyboard)
-
-
 async def start_clinical_onboarding(message: Message, state: FSMContext):
     await state.set_state(OnboardingStates.waiting_for_icr)
     await message.answer(
@@ -66,18 +44,6 @@ async def start_clinical_onboarding(message: Message, state: FSMContext):
 
 
 async def send_feature_walkthrough(message: Message, telegram_id: int):
-    async with async_session_local() as session:
-        result = await session.execute(select(User).filter(User.telegram_id == telegram_id))
-        user = result.scalars().first()
-    tier = effective_tier(user) if user else "free"
-
-    if tier == "regular" and user and user.trial_expires_at:
-        ai_status = "🎁 Зараз у вас активний 7-денний пробний доступ до AI-функцій!"
-    elif tier in ("regular", "super", "unlimited"):
-        ai_status = "✅ AI-функції доступні на вашому тарифі."
-    else:
-        ai_status = "🔒 AI-функції (аналіз страв фото/текстом, чат-помічник) недоступні на безкоштовному тарифі."
-
     text = (
         "📖 <b>Що вміє цей бот:</b>\n\n"
         "🩸 <b>Цукор:</b> напишіть <code>цукор 6.2</code> — запишеться миттєво.\n"
@@ -86,33 +52,9 @@ async def send_feature_walkthrough(message: Message, telegram_id: int):
         "💬 <b>Чат-помічник (AI):</b> просто напишіть питання — бот відповість, спираючись на вашу історію.\n"
         "🔍 /status — поточний цукор та активний інсулін.\n"
         "📈 /analyze — аналіз чутливості за 7 днів.\n"
-        "⏰ /reminders — нагадування про вимірювання цукру.\n\n"
-        f"{ai_status}"
+        "⏰ /reminders — нагадування про вимірювання цукру."
     )
     await message.answer(text)
-
-
-@onboarding_router.callback_query(F.data == "tos_accept")
-async def tos_accept_callback(callback_query: CallbackQuery, state: FSMContext):
-    await callback_query.answer()
-    telegram_id = callback_query.from_user.id
-    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-    trial_expires = now + datetime.timedelta(days=7)
-
-    async with async_session_local() as session:
-        async with session.begin():
-            result = await session.execute(select(User).filter(User.telegram_id == telegram_id))
-            user = result.scalars().first()
-            if not user:
-                user = User(telegram_id=telegram_id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0)
-                session.add(user)
-            user.tos_accepted_at = now
-            user.trial_expires_at = trial_expires
-
-    await callback_query.message.edit_text(
-        "✅ Дякуємо! Вам надано 7-денний пробний доступ до AI-функцій (аналіз страв, чат-помічник)."
-    )
-    await start_clinical_onboarding(callback_query.message, state)
 
 
 @onboarding_router.message(OnboardingStates.waiting_for_icr)
@@ -233,7 +175,6 @@ async def start_handler(message: Message, state: FSMContext):
                 await session.flush()
                 logger.info(f"Registered new user: {telegram_id}")
 
-            tos_accepted = user.tos_accepted_at is not None
             clinical_done = user.clinical_setup_complete
             user_icr, user_isf, user_target_bg, user_dia_hours = user.icr, user.isf, user.target_bg, user.dia_hours
 
@@ -246,10 +187,6 @@ async def start_handler(message: Message, state: FSMContext):
                 user.gender is None or
                 user.birth_year is None
             )
-
-    if not tos_accepted:
-        await send_tos_prompt(message)
-        return
 
     if not clinical_done:
         await start_clinical_onboarding(message, state)

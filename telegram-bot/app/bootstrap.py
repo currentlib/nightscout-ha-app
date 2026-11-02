@@ -38,10 +38,8 @@ ENV = {
     "alert_no_data_minutes": "ALERT_NO_DATA_MINUTES",
     "alert_repeat_minutes": "ALERT_REPEAT_MINUTES",
     "alert_recipients": "ALERT_RECIPIENTS",
-}
-MODELS = {
-    "ai_model_heavy": ("MODEL_REGULAR_HEAVY", "MODEL_SUPER_HEAVY", "MODEL_UNLIMITED_HEAVY"),
-    "ai_model_light": ("MODEL_REGULAR_LIGHT", "MODEL_SUPER_LIGHT", "MODEL_UNLIMITED_LIGHT"),
+    "ai_model_heavy": "MODEL_HEAVY",
+    "ai_model_light": "MODEL_LIGHT",
 }
 
 
@@ -58,9 +56,6 @@ def environment(options: dict) -> dict:
     # The patient can always use the bot, whether or not they're listed.
     allowed = [options.get("patient_telegram_id"), *options.get("telegram_user_ids", [])]
     env["TELEGRAM_WHITELIST_USER_IDS"] = json.dumps([uid for uid in allowed if uid])
-    for option, variables in MODELS.items():
-        if options.get(option):
-            env.update(dict.fromkeys(variables, options[option]))
     return env
 
 

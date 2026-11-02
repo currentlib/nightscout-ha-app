@@ -5,9 +5,7 @@ class Settings(BaseSettings):
     # Telegram Bot Settings
     BOT_TOKEN: str = "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ123456789"
     TELEGRAM_WHITELIST_USER_IDS: list[int] = [0]  # List of authorized Telegram User IDs
-    ADMIN_USER_IDS: list[int] = []  # Subset of whitelisted users allowed to run /admin
-    # Whitelist-only. When True, WhitelistMiddleware stops blocking non-whitelisted users.
-    PUBLIC_SIGNUP_ENABLED: bool = False
+    ADMIN_USER_IDS: list[int] = []  # Allowed users who may run /admin
 
     # Database Settings
     # Use SQLite + aiosqlite as default for async compatibility
@@ -42,16 +40,9 @@ class Settings(BaseSettings):
     # USDA FoodData Central lookup for dish/nutrition grounding. "DEMO_KEY" works with no signup
     # but is rate-limited; get a free key (1,000 req/hour) at https://api.nal.usda.gov/fdc/api-key-signup/
     USDA_API_KEY: str = "DEMO_KEY"
-    # Model used per tier, split by call weight: "heavy" = vision food analysis + chat,
-    # "light" = metrics extraction + timing hints. Independently configurable per tier so
-    # e.g. Regular can run cheap-everywhere while Unlimited runs the flagship for heavy calls
-    # only. See app/services/tiers.py::TIER_MODELS. Free tier has no AI access, no models needed.
-    MODEL_REGULAR_HEAVY: str = "gpt-5.6-luna"
-    MODEL_REGULAR_LIGHT: str = "gpt-5.6-luna"
-    MODEL_SUPER_HEAVY: str = "gpt-5.6-terra"
-    MODEL_SUPER_LIGHT: str = "gpt-5.6-luna"
-    MODEL_UNLIMITED_HEAVY: str = "gpt-5.6-terra"
-    MODEL_UNLIMITED_LIGHT: str = "gpt-5.6-luna"
+    # "Heavy" is food analysis and chat, "light" is metrics extraction and timing hints.
+    MODEL_HEAVY: str = "gpt-5.6-terra"
+    MODEL_LIGHT: str = "gpt-5.6-luna"
 
     # Context & Token Optimization Settings
     CHAT_HISTORY_LIMIT: int = 15

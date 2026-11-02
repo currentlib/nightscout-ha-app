@@ -8,7 +8,6 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from app.config import settings
 from app.services.usage import record_usage
-from app.services.tiers import resolve_heavy_model, resolve_light_model
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +242,7 @@ class AIService:
         )
         try:
             response = await self.client.beta.chat.completions.parse(
-                model=resolve_light_model(),
+                model=settings.MODEL_LIGHT,
                 messages=[
                     {
                         "role": "system",
@@ -256,7 +255,7 @@ class AIService:
                 ],
                 response_format=ExtractedMetrics
             )
-            await record_usage(resolve_light_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "extraction")
+            await record_usage(settings.MODEL_LIGHT, response.usage.prompt_tokens, response.usage.completion_tokens, "extraction")
             return response.choices[0].message.parsed
         except Exception as e:
             logger.error(f"Error extracting metrics: {e}")
@@ -292,12 +291,12 @@ class AIService:
                 }
             ]
             response = await self.client.beta.chat.completions.parse(
-                model=resolve_heavy_model(),
+                model=settings.MODEL_HEAVY,
                 messages=messages,
                 response_format=ImageDetails,
                 max_completion_tokens=1000
             )
-            await record_usage(resolve_heavy_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
+            await record_usage(settings.MODEL_HEAVY, response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
             return response.choices[0].message.parsed
         except Exception as e:
             logger.error(f"Error extracting image details: {e}")
@@ -357,12 +356,12 @@ class AIService:
         messages.append({"role": "user", "content": user_content})
 
         response = await self.client.beta.chat.completions.parse(
-            model=resolve_heavy_model(),
+            model=settings.MODEL_HEAVY,
             messages=messages,
             response_format=FoodNutritionSchema,
             max_completion_tokens=1000
         )
-        await record_usage(resolve_heavy_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
+        await record_usage(settings.MODEL_HEAVY, response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
         raw = response.choices[0].message.parsed
         if not raw:
             raise ValueError("Failed to parse product context analysis.")
@@ -406,12 +405,12 @@ class AIService:
         messages.append({"role": "user", "content": user_content})
 
         response = await self.client.beta.chat.completions.parse(
-            model=resolve_heavy_model(),
+            model=settings.MODEL_HEAVY,
             messages=messages,
             response_format=FoodNutritionSchema,
             max_completion_tokens=1000
         )
-        await record_usage(resolve_heavy_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
+        await record_usage(settings.MODEL_HEAVY, response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
         raw = response.choices[0].message.parsed
         if not raw:
             raise ValueError("Failed to parse search context analysis.")
@@ -562,7 +561,7 @@ class AIService:
         messages.append({"role": "user", "content": user_content})
 
         try:
-            heavy_model = resolve_heavy_model()
+            heavy_model = settings.MODEL_HEAVY
             logger.info(f"Sending visual/text analysis to OpenAI model {heavy_model}...")
             response = await self.client.beta.chat.completions.parse(
                 model=heavy_model,
@@ -570,7 +569,7 @@ class AIService:
                 response_format=FoodNutritionSchema,
                 max_completion_tokens=1000
             )
-            await record_usage(resolve_heavy_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
+            await record_usage(settings.MODEL_HEAVY, response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
             raw = response.choices[0].message.parsed
             if not raw:
                 raise ValueError("Failed to parse structured output from OpenAI.")
@@ -627,12 +626,12 @@ class AIService:
 
         logger.info("Sending clarified food analysis to OpenAI...")
         response = await self.client.beta.chat.completions.parse(
-            model=resolve_heavy_model(),
+            model=settings.MODEL_HEAVY,
             messages=messages,
             response_format=FoodNutritionSchema,
             max_completion_tokens=1000
         )
-        await record_usage(resolve_heavy_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
+        await record_usage(settings.MODEL_HEAVY, response.usage.prompt_tokens, response.usage.completion_tokens, "food_analysis")
         raw = response.choices[0].message.parsed
         if not raw:
             raise ValueError("Failed to parse clarified food analysis.")
@@ -743,7 +742,7 @@ class AIService:
 
         try:
             stream = await self.client.chat.completions.create(
-                model=resolve_heavy_model(),
+                model=settings.MODEL_HEAVY,
                 messages=messages,
                 max_completion_tokens=800,
                 stream=True,
@@ -754,7 +753,7 @@ class AIService:
                 # The final chunk (when include_usage is set) carries usage but an empty
                 # choices array — guard before indexing into it.
                 if chunk.usage:
-                    await record_usage(resolve_heavy_model(), chunk.usage.prompt_tokens, chunk.usage.completion_tokens, "chat")
+                    await record_usage(settings.MODEL_HEAVY, chunk.usage.prompt_tokens, chunk.usage.completion_tokens, "chat")
                 if chunk.choices:
                     delta = chunk.choices[0].delta.content
                     if delta:
@@ -822,14 +821,14 @@ class AIService:
         )
         try:
             response = await self.client.chat.completions.create(
-                model=resolve_light_model(),
+                model=settings.MODEL_LIGHT,
                 messages=[
                     {"role": "system", "content": system_content},
                     {"role": "user", "content": "Будь ласка, згенеруй коротку рекомендацію щодо введення інсуліну та прийому їжі."}
                 ],
                 max_completion_tokens=250
             )
-            await record_usage(resolve_light_model(), response.usage.prompt_tokens, response.usage.completion_tokens, "timing_hint")
+            await record_usage(settings.MODEL_LIGHT, response.usage.prompt_tokens, response.usage.completion_tokens, "timing_hint")
             return response.choices[0].message.content.strip()
         except Exception as e:
             logger.error(f"Error generating AI timing hint: {e}")

@@ -50,10 +50,8 @@ class User(Base):
     # Long-term AI memory: durable facts auto-extracted from chat (allergies, preferences, routines)
     memory_notes = Column(String, nullable=True)
 
-    # Access tier & onboarding gates (see PUBLIC_LAUNCH_PLAN.md section 1)
-    tier = Column(String, default="free", nullable=False)  # free | regular | super | unlimited
-    trial_expires_at = Column(DateTime(timezone=True), nullable=True)  # Regular-level access until this passes
-    tos_accepted_at = Column(DateTime(timezone=True), nullable=True)
+    # No longer used, but it's NOT NULL with no database default in existing files.
+    tier = Column(String, default="unlimited", nullable=False)
     clinical_setup_complete = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
@@ -213,15 +211,7 @@ async def init_db():
         except Exception:
             pass
         try:
-            await conn.execute(text("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'free' NOT NULL"))
-        except Exception:
-            pass
-        try:
-            await conn.execute(text("ALTER TABLE users ADD COLUMN trial_expires_at TIMESTAMP"))
-        except Exception:
-            pass
-        try:
-            await conn.execute(text("ALTER TABLE users ADD COLUMN tos_accepted_at TIMESTAMP"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'unlimited' NOT NULL"))
         except Exception:
             pass
         try:
@@ -229,24 +219,12 @@ async def init_db():
         except Exception:
             pass
 
-        # Grandfather the existing trusted whitelist: unlimited tier, and treat them as having
-        # already accepted ToS / completed clinical setup, so the new gates (tier limits, ToS
-        # prompt, mandatory ICR/ISF onboarding) only apply going forward to new signups, not
-        # retroactively interrupt people already using the bot. Safe to re-run every startup
-        # (idempotent), and keeps working even if the whitelist gains members later. IDs come
-        # from our own settings, not user input, so the int() cast is a defensive type guard,
-        # not an injection concern.
-        if settings.TELEGRAM_WHITELIST_USER_IDS:
-            ids_str = ",".join(str(int(uid)) for uid in settings.TELEGRAM_WHITELIST_USER_IDS)
-            try:
-                await conn.execute(text(
-                    f"UPDATE users SET tier = 'unlimited', "
-                    f"tos_accepted_at = COALESCE(tos_accepted_at, CURRENT_TIMESTAMP), "
-                    f"clinical_setup_complete = 1 "
-                    f"WHERE telegram_id IN ({ids_str})"
-                ))
-            except Exception:
-                pass
+        # Someone with logged history is past clinical setup, even if their database is older
+        # than this column. Anyone else must finish it, or doses would use default values.
+        await conn.execute(text(
+            "UPDATE users SET clinical_setup_complete = 1 "
+            "WHERE telegram_id IN (SELECT telegram_id FROM log_entries)"
+        ))
 
 
 async def get_db():

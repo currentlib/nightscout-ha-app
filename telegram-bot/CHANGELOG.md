@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Private use only: removed the terms screen, 7-day trial, tiers, daily AI limits and public signup.
+- Clinical setup no longer counts as finished just because the app restarted.
+
 ## 0.1.0
 
 - Runs as a Home Assistant app, with the existing database imported on first start.

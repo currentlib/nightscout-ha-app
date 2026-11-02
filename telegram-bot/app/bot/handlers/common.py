@@ -23,7 +23,6 @@ from app.services import nightscout
 from app.services.ai_service import ai_service
 from app.services.calculations import carbs_on_board, insulin_on_board, using_nightscout
 from app.services.iob_engine import calculate_hypo_carb_target, calculate_prebolus_minutes
-from app.services.tiers import check_ai_budget, current_tier, effective_tier
 
 logger = logging.getLogger(__name__)
 
@@ -97,29 +96,6 @@ def sanitize_telegram_html(text: str) -> str:
     if not text:
         return text
     return _TG_UNSAFE_LT.sub('&lt;', text)
-
-
-async def gate_ai_access(message: Message, user: User) -> bool:
-    """
-    Checks the user's tier budget before a primary AI feature (food analysis, chat) runs,
-    and sets current_tier so ai_service.py routes to the right model. Returns True if
-    allowed; if not, already sent the user a decline message and the caller should return.
-    """
-    tier = effective_tier(user)
-    current_tier.set(tier)
-    if await check_ai_budget(user.telegram_id, tier):
-        return True
-
-    if tier == "free":
-        await message.answer(
-            "🔒 AI-функції (аналіз страв, чат) недоступні на безкоштовному тарифі. "
-            "Зверніться до адміністратора, щоб дізнатися про підвищення тарифу."
-        )
-    else:
-        await message.answer(
-            "⏳ Ви досягли денного ліміту використання ШІ для вашого тарифу. Спробуйте завтра."
-        )
-    return False
 
 
 async def _typing_loop(chat_id: int):
@@ -361,13 +337,8 @@ async def resolve_timing_hint(
     protein: float = 0.0,
     fat: float = 0.0
 ) -> str:
-    """Resolves timing hint using AI if configured and the user's tier has budget left, otherwise falls back to default_hint."""
+    """Resolves timing hint using AI if configured, otherwise falls back to the default."""
     if not settings.USE_AI_TIMING_HINTS:
-        return default_hint
-
-    tier = effective_tier(user)
-    current_tier.set(tier)
-    if not await check_ai_budget(telegram_id, tier):
         return default_hint
 
     try:

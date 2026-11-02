@@ -26,10 +26,8 @@ class WhitelistMiddleware(BaseMiddleware):
             logger.debug(f"Dropped event {type(event)} with no user info.")
             return
 
-        # Restrict to whitelist user ID, unless public signup has been deliberately enabled
-        # (see PUBLIC_SIGNUP_ENABLED in app/config.py) — in which case anyone gets in and
-        # lands on a fresh "free" tier account instead of being blocked here.
-        if not settings.PUBLIC_SIGNUP_ENABLED and user_id not in settings.TELEGRAM_WHITELIST_USER_IDS:
+        # Only the people listed in the app's options can use the bot.
+        if user_id not in settings.TELEGRAM_WHITELIST_USER_IDS:
             logger.warning(
                 f"Unauthorized access attempt from User ID: {user_id}. Whitelist: {settings.TELEGRAM_WHITELIST_USER_IDS}"
             )

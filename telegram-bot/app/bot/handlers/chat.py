@@ -17,7 +17,7 @@ from app.services import nightscout
 from app.services.calculations import carbs_on_board, insulin_on_board
 from app.services.iob_engine import calculate_fpu
 
-from .common import CHAT_THINKING_HINTS, _status_text_loop, _typing_loop, gate_ai_access, sanitize_telegram_html
+from .common import CHAT_THINKING_HINTS, _status_text_loop, _typing_loop, sanitize_telegram_html
 
 logger = logging.getLogger(__name__)
 
@@ -45,22 +45,13 @@ async def run_chat_assistant_flow(message: Message, state: FSMContext) -> None:
     try:
         telegram_id = message.from_user.id
 
-        # Gate on tier/budget before spending anything — the "2. Retrieve user settings"
-        # block below re-fetches the user in its own session (needed there to mutate/commit
-        # memory_notes); this is just a lightweight fetch-or-create so the gate has a User
-        # to check before either extraction or the chat reply run.
+        # The "2. Retrieve user settings" block below re-fetches the user in its own session;
+        # this just makes sure the row exists before extraction runs.
         async with async_session_local() as session:
             async with session.begin():
-                gate_user_res = await session.execute(select(User).filter(User.telegram_id == telegram_id))
-                gate_user = gate_user_res.scalars().first()
-                if not gate_user:
-                    gate_user = User(telegram_id=telegram_id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0)
-                    session.add(gate_user)
-        if not await gate_ai_access(message, gate_user):
-            text_task.cancel()
-            typing_task.cancel()
-            await progress_msg.delete()
-            return
+                user_res = await session.execute(select(User).filter(User.telegram_id == telegram_id))
+                if not user_res.scalars().first():
+                    session.add(User(telegram_id=telegram_id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0))
 
         # 1. Automatic metrics + long-term memory extraction. Runs unconditionally (not gated
         # on digits/keywords) because memory-worthy facts ("не люблю гостре") rarely contain

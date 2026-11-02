@@ -22,7 +22,6 @@ from .common import (
     _status_text_loop,
     _typing_loop,
     animated_status,
-    gate_ai_access,
     parse_custom_datetime,
     parse_today_time,
     resolve_timing_hint,
@@ -53,9 +52,6 @@ async def photo_food_handler(message: Message, state: FSMContext):
             if not user:
                 user = User(telegram_id=message.from_user.id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0)
                 session.add(user)
-    if not await gate_ai_access(message, user):
-        return
-
     progress_msg = await message.answer("🔄 <i>ШІ аналізує фото страви... Будь ласка, зачекайте...</i>")
 
     progress_deleted = False
@@ -125,9 +121,6 @@ async def handle_food_clarification_answer(message: Message, state: FSMContext):
             if not user:
                 user = User(telegram_id=message.from_user.id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0)
                 session.add(user)
-    if not await gate_ai_access(message, user):
-        return
-
     progress_msg = await message.answer("🔄 <i>Перераховую оцінку з урахуванням вашої відповіді...</i>")
     try:
         import base64 as b64

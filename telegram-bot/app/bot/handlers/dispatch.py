@@ -17,7 +17,6 @@ from .common import (
     ReminderSettingsStates,
     FOOD_ANALYSIS_HINTS,
     animated_status,
-    gate_ai_access,
     get_insulin_type_keyboard,
     get_dashboard_inline_keyboard,
     get_status_info,
@@ -45,7 +44,7 @@ from .glucose_insulin import (
     handle_insulin_today_time,
     try_handle_direct_entry_text,
 )
-from .onboarding import send_tos_prompt, start_clinical_onboarding
+from .onboarding import start_clinical_onboarding
 from .reminders import handle_reminder_end_hour, handle_reminder_interval, handle_reminder_start_hour, trigger_emergency_flow
 
 logger = logging.getLogger(__name__)
@@ -57,18 +56,15 @@ async def text_handler(message: Message, state: FSMContext):
     """Processes either manual metrics logging or sends plain descriptions to OpenAI."""
     text = message.text.strip().lower()
 
-    # Pragmatic single choke-point: catches anyone who hasn't accepted ToS / finished clinical
-    # onboarding and lands here with no active FSM state (e.g. never ran /start, or is mid-way
-    # and sent an unrelated message). Dedicated onboarding-state handlers registered elsewhere
-    # already intercept messages sent *during* an active onboarding step before this ever runs.
-    # Note: this doesn't gate every single command handler (/status etc.) individually — a
-    # known, deliberate scope cut for this pass, not an oversight.
+    # Catches anyone who hasn't finished clinical setup and lands here with no active FSM state.
+    # Handlers for the setup steps intercept messages sent during an active step before this.
     async with async_session_local() as session:
-        gate_user_res = await session.execute(select(User).filter(User.telegram_id == message.from_user.id))
-        gate_user = gate_user_res.scalars().first()
-    if not gate_user or gate_user.tos_accepted_at is None:
-        await send_tos_prompt(message)
-        return
+        async with session.begin():
+            gate_user_res = await session.execute(select(User).filter(User.telegram_id == message.from_user.id))
+            gate_user = gate_user_res.scalars().first()
+            if not gate_user:
+                gate_user = User(telegram_id=message.from_user.id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0)
+                session.add(gate_user)
     if not gate_user.clinical_setup_complete:
         await start_clinical_onboarding(message, state)
         return
@@ -177,9 +173,6 @@ async def text_handler(message: Message, state: FSMContext):
                 if not user:
                     user = User(telegram_id=message.from_user.id, icr=10.0, isf=3.0, target_bg=5.5, dia_hours=4.0)
                     session.add(user)
-        if not await gate_ai_access(message, user):
-            return
-
         progress_msg = await message.answer("🔄 <i>ШІ аналізує опис страви... Будь ласка, зачекайте...</i>")
         try:
             async with animated_status(message.chat.id, progress_msg, FOOD_ANALYSIS_HINTS):

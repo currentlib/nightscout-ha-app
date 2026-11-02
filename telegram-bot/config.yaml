@@ -1,5 +1,5 @@
 name: Diabetes Telegram Bot
-version: "0.1.0"
+version: "0.1.1"
 slug: telegram-bot
 description: Telegram assistant for meals, insulin and glucose alerts, synced with Nightscout
 url: https://github.com/currentlib/nightscout-ha-app

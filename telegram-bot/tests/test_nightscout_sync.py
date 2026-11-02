@@ -367,5 +367,52 @@ def test_options_become_settings():
     assert env["BOT_TOKEN"] == "t" and env["ALERT_LOW"] == "3.9"
     assert json.loads(env["TELEGRAM_WHITELIST_USER_IDS"]) == [5, 6]
     assert json.loads(env["ALERT_RECIPIENTS"]) == [{"chat_id": 7}]
-    assert env["MODEL_UNLIMITED_HEAVY"] == "m"
+    assert env["MODEL_HEAVY"] == "m"
     assert "DASHBOARD_URL" not in env
+
+
+def test_setup_is_kept_only_for_people_with_history(ns):
+    async def scenario():
+        async with async_session_local() as session:
+            session.add(User(telegram_id=3, clinical_setup_complete=False))
+            session.add(User(telegram_id=4, clinical_setup_complete=False))
+            session.add(LogEntry(telegram_id=3, carbs=10.0, timestamp=NOW))
+            await session.commit()
+        await init_db()
+        async with async_session_local() as session:
+            return dict((await session.execute(select(User.telegram_id, User.clinical_setup_complete))).all())
+
+    done = run(scenario())
+    assert done[3] is True
+    assert done[4] is False
+
+
+def test_new_user_can_be_saved_in_an_old_database(ns):
+    run(add(User(telegram_id=9)))
+    assert any(user.telegram_id == 9 for user in run(rows(User)))
+
+
+def test_people_not_listed_are_refused(monkeypatch):
+    from types import SimpleNamespace
+    from aiogram.types import Message
+    from app.bot.middleware import WhitelistMiddleware
+
+    monkeypatch.setattr(alerts.settings, "TELEGRAM_WHITELIST_USER_IDS", [1])
+    reached = []
+
+    async def handler(event, data):
+        reached.append(event.from_user.id)
+
+    def message(user_id):
+        event = Message.model_construct(from_user=SimpleNamespace(id=user_id))
+        object.__setattr__(event, "answer", lambda *a, **k: asyncio.sleep(0))
+        return event
+
+    async def scenario():
+        middleware = WhitelistMiddleware()
+        await middleware(handler, message(1), {})
+        await middleware(handler, message(2), {})
+
+    monkeypatch.setattr(Message, "answer", lambda self, *a, **k: asyncio.sleep(0), raising=False)
+    run(scenario())
+    assert reached == [1]
