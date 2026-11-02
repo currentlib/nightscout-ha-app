@@ -3,8 +3,12 @@
 A Home Assistant app that runs [Nightscout](https://github.com/nightscout/cgm-remote-monitor)
 and its own MongoDB on Home Assistant OS, included in HA backups.
 
-Built for a 64-bit Raspberry Pi 4 with 4 GB of RAM. See
-[`nightscout/DOCS.md`](nightscout/DOCS.md).
+Built for a 64-bit Raspberry Pi 4 with 4 GB of RAM.
+
+| App | What it does | Setup |
+|---|---|---|
+| Nightscout | CGM data, graphs and Home Assistant entities | [`nightscout/DOCS.md`](nightscout/DOCS.md) |
+| Diabetes Telegram Bot | Meals, insulin, AI chat and glucose alerts, synced with Nightscout | [`telegram-bot/DOCS.md`](telegram-bot/DOCS.md) |
 
 ## Install
 

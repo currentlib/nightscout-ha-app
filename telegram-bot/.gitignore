@@ -1,0 +1,11 @@
+.env
+__pycache__
+venv
+.pytest_cache
+*.db
+*.db-*
+data/
+backups/
+scratch/
+PUBLIC_LAUNCH_PLAN.md
+SOLUTION_DESIGN.md

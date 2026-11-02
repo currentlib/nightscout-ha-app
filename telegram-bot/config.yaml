@@ -1,0 +1,63 @@
+name: Diabetes Telegram Bot
+version: "0.1.0"
+slug: telegram-bot
+description: Telegram assistant for meals, insulin and glucose alerts, synced with Nightscout
+url: https://github.com/currentlib/nightscout-ha-app
+arch:
+  - aarch64
+init: true
+timeout: 30
+backup: cold
+backup_exclude:
+  - backups
+map:
+  - type: app_config
+    read_only: false
+options:
+  bot_token: null
+  openai_api_key: null
+  usda_api_key: DEMO_KEY
+  patient_telegram_id: null
+  telegram_user_ids: []
+  admin_user_ids: []
+  nightscout_url: "http://63acfdf2-nightscout:1337"
+  nightscout_token: null
+  ai_model_heavy: gpt-5.6-terra
+  ai_model_light: gpt-5.6-luna
+  alert_urgent_low: 3.1
+  alert_low: 3.9
+  alert_high: 13.9
+  alert_predicted_low: 4.0
+  alert_predicted_high: 10.0
+  alert_no_data_minutes: 30
+  alert_repeat_minutes: 30
+  alert_recipients: []
+schema:
+  bot_token: password
+  openai_api_key: password
+  usda_api_key: str
+  patient_telegram_id: int
+  telegram_user_ids:
+    - int
+  admin_user_ids:
+    - int
+  nightscout_url: url
+  nightscout_token: password
+  dashboard_url: "url?"
+  ai_model_heavy: str
+  ai_model_light: str
+  alert_urgent_low: "float(1,)"
+  alert_low: "float(1,)"
+  alert_high: "float(1,)"
+  alert_predicted_low: "float(1,)"
+  alert_predicted_high: "float(1,)"
+  alert_no_data_minutes: "int(5,)"
+  alert_repeat_minutes: "int(5,)"
+  alert_recipients:
+    - chat_id: int
+      name: "str?"
+      urgent_low: bool
+      low: bool
+      high: bool
+      predicted: bool
+      no_data: bool

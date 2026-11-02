@@ -1,0 +1,63 @@
+configuration:
+  bot_token:
+    name: Telegram bot token
+    description: From BotFather.
+  openai_api_key:
+    name: OpenAI API key
+  usda_api_key:
+    name: USDA API key
+    description: DEMO_KEY works, but is rate-limited.
+  patient_telegram_id:
+    name: Patient's Telegram ID
+    description: Whose glucose is in Nightscout. This person can always use the bot.
+  telegram_user_ids:
+    name: Other allowed Telegram IDs
+    description: Other people who may use the bot.
+  admin_user_ids:
+    name: Admin Telegram IDs
+  nightscout_url:
+    name: Nightscout address
+  nightscout_token:
+    name: Nightscout token
+    description: An access token, or your Nightscout API secret.
+  dashboard_url:
+    name: Dashboard link
+    description: Opened by the bot's dashboard button, for example a Home Assistant dashboard.
+  ai_model_heavy:
+    name: AI model for chat and food photos
+  ai_model_light:
+    name: AI model for small tasks
+  alert_urgent_low:
+    name: Urgent low (mmol/L)
+  alert_low:
+    name: Low (mmol/L)
+  alert_high:
+    name: High (mmol/L)
+  alert_predicted_low:
+    name: Predicted low (mmol/L)
+  alert_predicted_high:
+    name: Predicted high (mmol/L)
+  alert_no_data_minutes:
+    name: No data alert after (minutes)
+  alert_repeat_minutes:
+    name: Repeat alerts every (minutes)
+    description: Urgent lows always repeat every 10 minutes.
+  alert_recipients:
+    name: Who gets alerts
+    description: One entry per person or group, each with its own alert types. Empty sends everything to the patient.
+    fields:
+      chat_id:
+        name: Telegram chat ID
+        description: This person must press Start in the bot once. Group IDs are negative.
+      name:
+        name: Name
+      urgent_low:
+        name: Urgent low
+      low:
+        name: Low
+      high:
+        name: High
+      predicted:
+        name: Predicted low or high
+      no_data:
+        name: No data
